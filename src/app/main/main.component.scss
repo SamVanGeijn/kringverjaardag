@@ -4,13 +4,12 @@
     height: 100%;
 }
 
-.messages {
-    // flex-grow: 1;
+#messages {
     background-color: lightgray;
     padding: 20px;
 }
 
-.chat-input {
+#chat-input {
     background-color: white;
     padding: 20px;
     display: flex;
@@ -19,4 +18,14 @@
     position: fixed;
     bottom: 0;
     width: 100%;
+    overflow: auto;
+}
+
+#chat-input input {
+    width: 250px;
+}
+
+
+#topic {
+    text-align: center;
 }

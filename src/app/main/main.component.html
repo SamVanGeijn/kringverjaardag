@@ -1,12 +1,15 @@
 <div id="chat-container">
-    <div class="messages">
+    <div id="messages">
         <p *ngFor="let message of messages" class="message"
             [ngStyle]="{'text-align': message.fromUser ? 'right' : 'left'}">{{message.text}}</p>
         <p style="text-align: left;" *ngIf="pageInitialized && !canSendMessage">Manfred is thinking...</p>
     </div>
 
-    <div class="chat-input">
-        <input [disabled]="!pageInitialized || !canSendMessage" #chatInput type="text"
-            (keyup.enter)="sendMessage(chatInput.value)" placeholder="Type a message..." />
+    <div id="chat-input">
+        <div>
+            <p id="topic">Current topic: {{currentTopic}}.</p>
+            <input [disabled]="!pageInitialized || !canSendMessage" #chatInput type="text"
+                (keyup.enter)="sendMessage(chatInput.value)" placeholder="Type a message..." />
+        </div>
     </div>
 </div>

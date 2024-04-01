@@ -1,1 +1,10 @@
-<p>main works!</p>
+<div id="chat-container">
+    <div class="messages">
+        <p *ngFor="let message of messages" class="message"
+            [ngStyle]="{'text-align': message.fromUser ? 'right' : 'left'}">{{message.text}}</p>
+    </div>
+
+    <div class="chat-input">
+        <input #chatInput type="text" (keyup.enter)="sendMessage(chatInput.value)" placeholder="Type a message..." />
+    </div>
+</div>

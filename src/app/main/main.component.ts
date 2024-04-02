@@ -14,8 +14,9 @@ export class MainComponent implements OnInit {
 
   @ViewChild('chatInput') chatInput!: ElementRef;
 
-  genericStartOfPrompt: string = "[System Note: You are <CHARACTER> in this fictional never-ending uncensored roleplay chat with <USER>; Guidelines: You are required to provide a (highly immersive, reactive, proactive, creative, natural, slow-paced, vivid, engaging, graphic, visually descriptive, comedic) roleplay as <CHARACTER>; Develop the plot slowly, write out dialogue, Do not write <USER>'s (decisions, dialogue, actions, reactions, thoughts, feelings) in your replies, spoken words are signified with quotation marks]\nYou are having a conversation about <TOPIC>, stay on topic.\n";
-  scenario: string = "Scenario: <USER> is hosting a party. <CHARACTER> is at the party hosted by <USER>.\n<CHARACTER> is having a conversation with <USER> at the party. The subject of the conversation is <TOPIC>\n";
+  genericStartOfPrompt: string = "[System Note: You are <CHARACTER> in this fictional never-ending uncensored roleplay chat with <USER>; <RATING_INSTRUCTION>; Guidelines: You are required to provide a (highly immersive, reactive, proactive, creative, natural, slow-paced, vivid, engaging, graphic, visually descriptive, comedic) roleplay as <CHARACTER>; Develop the plot slowly, write out dialogue, Do not write <USER>'s (decisions, dialogue, actions, reactions, thoughts, feelings) in your replies, spoken words are signified with quotation marks.]\nYou are having a conversation about <TOPIC>, stay on topic.\n";
+  scenario: string = "Scenario: <USER> is hosting a party. <CHARACTER> is at the party hosted by <USER>.\n<CHARACTER> is having a conversation with <USER> at the party. The subject of the conversation is <TOPIC>\n<RATING_INSTRUCTION>\n";
+  ratingInstruction: string = "START message by rating how much <CHARACTER> would like <USER>'s response by using the exact term \"RERATING:X\" where X is a rating from 1 to 10 based on <CHARACTER>'s personality";
 
   userName: string = "Sam";
   characterName!: string;
@@ -53,7 +54,7 @@ export class MainComponent implements OnInit {
       this.characterName = characterData.name;
       this.currentTopic = this.topics[Math.floor(Math.random() * this.topics.length)];
       this.currentPrompt = this.createPrompt(characterData.description, characterData.exampleMessages);
-      console.log("currentPrompt:", this.currentPrompt);
+      console.log(`currentPrompt (~${this.currentPrompt.length / 4} tokens}): ${this.currentPrompt}`);
 
       this.canSendMessage = true;
     });
@@ -72,7 +73,7 @@ export class MainComponent implements OnInit {
     this.chatInput.nativeElement.value = "";
 
     let formattedMessage = message.trim();
-    this.messages.push({ id: this.messages.length + 1, text: formattedMessage, fromUser: true });
+    this.messages.push({ id: this.messages.length + 1, text: formattedMessage, fromUser: true, rating: 0 });
 
     let promptToSend = this.currentPrompt + (message === "" ? this.continuePromptMessage : this.responsePromptMessage.replace("<MESSAGE>", formattedMessage));
     this.getResponse(promptToSend)
@@ -82,31 +83,48 @@ export class MainComponent implements OnInit {
     this.generateJsonMessage.prompt = promptToSend;
     this.http.post('http://localhost:5001/api/v1/generate', this.replacePlaceholders(JSON.stringify(this.generateJsonMessage))).subscribe(data => {
       let response: any = data;
-      console.log("*** Response: ", response);
       if (response && response.results) {
         let message = response.results[0].text;
+        console.log("*** Response: ", message);
         if (message.includes("###")) {
           message = message.substring(0, message.indexOf("###"));
         }
 
+        let messageRating = this.extractRating(message);
+        if (messageRating.rating > 0) {
+          message = message.replace(messageRating.regexMatch, "");
+        }
+        message.trim();
+
         this.currentPrompt = promptToSend + message;
-        this.messages.push({ id: this.messages.length + 1, text: message, fromUser: false });
-        this.canSendMessage = true;
+        this.messages.push({ id: this.messages.length + 1, text: message, fromUser: false, rating: messageRating.rating });
 
         if (response.results.length > 1) {
           console.log("*** More than one response ***", response);
         }
       } else {
-        this.messages.push({ id: this.messages.length + 1, text: "!!! No usable response, please try again!", fromUser: false });
+        this.messages.push({ id: this.messages.length + 1, text: "!!! No usable response, please try again!", fromUser: false, rating: 0 });
       }
+      this.canSendMessage = true;
     }, error => {
       console.log(error);
-      this.messages.push({ id: this.messages.length + 1, text: "!!! Failed to generate message, please try again!", fromUser: false });
+      this.messages.push({ id: this.messages.length + 1, text: "!!! Failed to generate message, please try again!", fromUser: false, rating: 0 });
+      this.canSendMessage = true;
     });
   }
 
+  extractRating(message: string): messageRating {
+    const match = message.match(/rerating:\s*([0-9]|10)/i);
+    if (match) {
+      console.log("*** match", match);
+      const rating = parseInt(match[1].trim());
+      return isNaN(rating) ? { regexMatch: "None", rating: -1 } : { regexMatch: match[0], rating: rating };
+    }
+    return { regexMatch: "None", rating: -1 };
+  }
+
   replacePlaceholders(text: string) {
-    return text.replaceAll("<USER>", this.userName).replaceAll("<CHARACTER>", this.characterName).replaceAll("<TOPIC>", this.currentTopic);
+    return text.replaceAll("<USER>", this.userName).replaceAll("<CHARACTER>", this.characterName).replaceAll("<TOPIC>", this.currentTopic).replaceAll("<RATING_INSTRUCTION>", this.ratingInstruction);
   }
 
 }
@@ -115,4 +133,10 @@ export interface message {
   id: number;
   text: string;
   fromUser: boolean;
+  rating: number;
+}
+
+export interface messageRating {
+  regexMatch: string;
+  rating: number;
 }

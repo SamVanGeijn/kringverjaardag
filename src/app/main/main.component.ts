@@ -75,29 +75,48 @@ export class MainComponent implements OnInit {
     let formattedMessage = message.trim();
     this.messages.push({ id: this.messages.length + 1, text: formattedMessage, fromUser: true, rating: 0 });
 
-    let promptToSend = this.currentPrompt + (message === "" ? this.continuePromptMessage : this.responsePromptMessage.replace("<MESSAGE>", formattedMessage));
-    this.getResponse(promptToSend)
+    const continueResponse = message === "";
+    let promptToSend = this.currentPrompt + (continueResponse ? this.continuePromptMessage : this.replacePlaceholders(this.responsePromptMessage.replace("<MESSAGE>", formattedMessage)));
+    this.getResponse(promptToSend, continueResponse);
   }
 
-  getResponse(promptToSend: string) {
+  getResponse(promptToSend: string, continueResponse: boolean) {
     this.generateJsonMessage.prompt = promptToSend;
     this.http.post('http://localhost:5001/api/v1/generate', this.replacePlaceholders(JSON.stringify(this.generateJsonMessage))).subscribe(data => {
       let response: any = data;
       if (response && response.results) {
-        let message = response.results[0].text;
-        console.log("*** Response: ", message);
-        if (message.includes("###")) {
-          message = message.substring(0, message.indexOf("###"));
+        let responseText = response.results[0].text.trim();
+        if (responseText.includes("###")) {
+          responseText = responseText.substring(0, responseText.indexOf("###"));
+        }
+        console.log("*** Response: ", responseText);
+        this.currentPrompt = promptToSend + responseText;
+
+        let message = responseText;
+        let existingMessage;
+        if (continueResponse) {
+          existingMessage = this.messages.slice().reverse().find(message => !message.fromUser);
+          message = !existingMessage ? message : existingMessage.text + " " + message;
+        }
+        message = message.trim();
+
+        let messageRating = -1;
+        if (!existingMessage || existingMessage.rating <= 0) {
+          const extractedRating = this.extractRating(message);
+          if (extractedRating.rating > 0) {
+            message = responseText.replace(extractedRating.regexMatch, "");
+            messageRating = extractedRating.rating;
+          }
+        } else {
+          messageRating = existingMessage.rating;
         }
 
-        let messageRating = this.extractRating(message);
-        if (messageRating.rating > 0) {
-          message = message.replace(messageRating.regexMatch, "");
+        if (existingMessage) {
+          existingMessage.text = message;
+          existingMessage.rating = messageRating;
+        } else {
+          this.messages.push({ id: this.messages.length + 1, text: message, fromUser: false, rating: messageRating });
         }
-        message.trim();
-
-        this.currentPrompt = promptToSend + message;
-        this.messages.push({ id: this.messages.length + 1, text: message, fromUser: false, rating: messageRating.rating });
 
         if (response.results.length > 1) {
           console.log("*** More than one response ***", response);
@@ -114,7 +133,7 @@ export class MainComponent implements OnInit {
   }
 
   extractRating(message: string): messageRating {
-    const match = message.match(/rerating:\s*([0-9]|10)/i);
+    const match = message.match(/rerating:\s*(10|[0-9])/i);
     if (match) {
       console.log("*** match", match);
       const rating = parseInt(match[1].trim());
@@ -124,7 +143,7 @@ export class MainComponent implements OnInit {
   }
 
   replacePlaceholders(text: string) {
-    return text.replaceAll("<USER>", this.userName).replaceAll("<CHARACTER>", this.characterName).replaceAll("<TOPIC>", this.currentTopic).replaceAll("<RATING_INSTRUCTION>", this.ratingInstruction);
+    return text.replaceAll("<RATING_INSTRUCTION>", this.ratingInstruction).replaceAll("<TOPIC>", this.currentTopic).replaceAll("<USER>", this.userName).replaceAll("<CHARACTER>", this.characterName);
   }
 
 }

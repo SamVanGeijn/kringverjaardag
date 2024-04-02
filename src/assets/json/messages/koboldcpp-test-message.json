@@ -24,12 +24,12 @@
     "smoothing_factor": 0,
     "max_tokens_second": 0,
     "stopping_strings": [
-        "\nSam:",
+        "\n<USER>:",
         "\n### Instruction:",
         "\n### Response:"
     ],
     "stop": [
-        "\nSam:",
+        "\n<USER>:",
         "\n### Instruction:",
         "\n### Response:"
     ],

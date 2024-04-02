@@ -19,10 +19,11 @@ export class MainComponent implements OnInit {
 
   userName: string = "Sam";
   characterName!: string;
+  availableCharacterFilenames: string[] = ["manfred", "tjeerd"];
 
   currentPrompt!: string;
 
-  responsePromptMessage: string = "\n### Instruction:\nSam: <MESSAGE>\n### Response:\nManfred:";
+  responsePromptMessage: string = "\n### Instruction:\n<USER>: <MESSAGE>\n### Response:\n<CHARACTER>:";
   continuePromptMessage: string = "";
 
   messages: message[] = [];
@@ -39,25 +40,31 @@ export class MainComponent implements OnInit {
   ngOnInit() {
     this.http.get('/assets/json/messages/koboldcpp-test-message.json').subscribe(res => {
       this.generateJsonMessage = res;
+      this.pageInitialized = true;
       this.startNewConversation();
     });
   }
 
   startNewConversation() {
-    this.http.get('/assets/json/characters/manfred.json').subscribe(data => {
+    this.canSendMessage = false;
+
+    this.http.get(`/assets/json/characters/${this.pickCharacter()}.json`).subscribe(data => {
       let characterData: any = data;
       this.characterName = characterData.name;
       this.currentTopic = this.topics[Math.floor(Math.random() * this.topics.length)];
       this.currentPrompt = this.createPrompt(characterData.description, characterData.exampleMessages);
       console.log("currentPrompt:", this.currentPrompt);
 
-      this.pageInitialized = true;
       this.canSendMessage = true;
     });
   }
 
+  pickCharacter() {
+    return this.availableCharacterFilenames[Math.floor(Math.random() * this.availableCharacterFilenames.length)];
+  }
+
   createPrompt(characterDescription: string, exampleMessages: string) {
-    return (this.genericStartOfPrompt + characterDescription + this.scenario + exampleMessages).replaceAll("<USER>", this.userName).replaceAll("<CHARACTER>", this.characterName).replaceAll("<TOPIC>", this.currentTopic);
+    return this.replacePlaceholders(this.genericStartOfPrompt + characterDescription + this.scenario + exampleMessages);
   }
 
   sendMessage(message: string) {
@@ -73,9 +80,7 @@ export class MainComponent implements OnInit {
 
   getResponse(promptToSend: string) {
     this.generateJsonMessage.prompt = promptToSend;
-    console.log(this.generateJsonMessage);
-    //
-    this.http.post('http://localhost:5001/api/v1/generate', this.generateJsonMessage).subscribe(data => {
+    this.http.post('http://localhost:5001/api/v1/generate', this.replacePlaceholders(JSON.stringify(this.generateJsonMessage))).subscribe(data => {
       let response: any = data;
       console.log("*** Response: ", response);
       if (response && response.results) {
@@ -98,6 +103,10 @@ export class MainComponent implements OnInit {
       console.log(error);
       this.messages.push({ id: this.messages.length + 1, text: "!!! Failed to generate message, please try again!", fromUser: false });
     });
+  }
+
+  replacePlaceholders(text: string) {
+    return text.replaceAll("<USER>", this.userName).replaceAll("<CHARACTER>", this.characterName).replaceAll("<TOPIC>", this.currentTopic);
   }
 
 }

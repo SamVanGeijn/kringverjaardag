@@ -18,22 +18,25 @@ export class MainComponent implements OnInit {
   scenario: string = "Scenario: <USER> is hosting a party. <CHARACTER> is at the party hosted by <USER>.\n<CHARACTER> is having a conversation with <USER> at the party. The subject of the conversation is <TOPIC>\n<RATING_INSTRUCTION>\n";
   ratingInstruction: string = "START message by rating how much <CHARACTER> would like <USER>'s response by using the exact term \"RERATING:X\" where X is a rating from 1 to 10 based on <CHARACTER>'s personality";
 
+  responsePromptMessage: string = "\n### Instruction:\n<USER>: <MESSAGE>\n### Response:\n<CHARACTER>:";
+  continuePromptMessage: string = "";
+
+  currentPrompt!: string;
+
   userName: string = "Sam";
   characterName!: string;
   availableCharacterFilenames: string[] = ["manfred", "tjeerd"];
 
-  currentPrompt!: string;
-
-  responsePromptMessage: string = "\n### Instruction:\n<USER>: <MESSAGE>\n### Response:\n<CHARACTER>:";
-  continuePromptMessage: string = "";
-
   messages: message[] = [];
+  topics: string[] = ["The meaning of life", "Dutch rap music", "The dangers of AI", "How many backflips could a cat do if it tried", "Should we colonize Mars", "The weather", "Traffic"];
+  currentTopic: string = "";
+
   generateJsonMessage: any;
   pageInitialized: boolean = false;
   canSendMessage: boolean = false;
 
-  topics: string[] = ["The meaning of life", "Dutch rap music", "The dangers of AI", "How many backflips could a cat do if it tried", "Should we colonize Mars", "The weather", "Traffic"];
-  currentTopic: string = "";
+  messagesRemaining: number = 10;
+  reputation: number = 50;
 
   constructor(private http: HttpClient) {
   }
@@ -48,6 +51,9 @@ export class MainComponent implements OnInit {
 
   startNewConversation() {
     this.canSendMessage = false;
+    this.messagesRemaining = 10;
+    this.reputation = 50;
+    this.messages = [];
 
     this.http.get(`/assets/json/characters/${this.pickCharacter()}.json`).subscribe(data => {
       let characterData: any = data;
@@ -96,7 +102,8 @@ export class MainComponent implements OnInit {
         let existingMessage;
         if (continueResponse) {
           existingMessage = this.messages.slice().reverse().find(message => !message.fromUser);
-          message = !existingMessage ? message : existingMessage.text + " " + message;
+          const messageSeparator = existingMessage && /[.,!?]/.test(existingMessage.text) ? " " : "";
+          message = !existingMessage ? message : existingMessage.text + messageSeparator + message;
         }
         message = message.trim();
 
@@ -106,6 +113,10 @@ export class MainComponent implements OnInit {
           if (extractedRating.rating > 0) {
             message = responseText.replace(extractedRating.regexMatch, "");
             messageRating = extractedRating.rating;
+            if (messageRating <= 5) {
+              this.reputation -= (11-messageRating);
+              // Game over!
+            }
           }
         } else {
           messageRating = existingMessage.rating;
@@ -124,7 +135,9 @@ export class MainComponent implements OnInit {
       } else {
         this.messages.push({ id: this.messages.length + 1, text: "!!! No usable response, please try again!", fromUser: false, rating: 0 });
       }
+
       this.canSendMessage = true;
+      this.messagesRemaining--;
     }, error => {
       console.log(error);
       this.messages.push({ id: this.messages.length + 1, text: "!!! Failed to generate message, please try again!", fromUser: false, rating: 0 });

@@ -1,25 +1,28 @@
 <div id="chat-container">
     <div id="messages">
         <p *ngFor="let message of messages" class="message"
-            [ngStyle]="{'text-align': message.fromUser ? 'right' : 'left'}">{{message.text}}<span *ngIf="message.rating > 0" style="color: purple;"> {{message.rating}}</span></p>
+            [ngStyle]="{'text-align': message.fromUser ? 'right' : 'left'}">{{message.text}}<span
+                *ngIf="message.rating > 0" style="color: purple;"> {{message.rating}}</span></p>
         <p style="text-align: left;" *ngIf="pageInitialized && !canSendMessage">{{characterName}} is thinking...</p>
     </div>
 
     <div id="chat-input">
-        <div *ngIf="reputation > 0 && messagesRemaining > 0" >
+        <div *ngIf="reputation > 0 && messagesRemaining > 0">
             <p>Talking to {{characterName}} about "{{currentTopic}}".</p>
-            <p>Messages remaining: {{messagesRemaining}}</p>
+            <p>Messages remaining: {{messagesRemaining}}, streak: {{streak}}</p>
             <p>Reputation: {{reputation}}</p>
             <input [disabled]="!pageInitialized || !canSendMessage" #chatInput type="text"
                 (keyup.enter)="sendMessage(chatInput.value)" placeholder="Type a message..." />
         </div>
-        <div *ngIf="reputation <= 0" >
+        <div *ngIf="reputation <= 0">
             <p>Game over!</p>
-            <button (click)="startNewConversation()">Restart</button>
+            <button (click)="startNewGame()">Restart</button>
         </div>
-        <div *ngIf="reputation > 0 && messagesRemaining <= 0" >
-            <p>You win!</p>
-            <button (click)="startNewConversation()">Restart</button>
+        <div *ngIf="reputation > 0 && messagesRemaining <= 0">
+            <input [disabled]="!pageInitialized || !canSendMessage" #chatInput type="text"
+                (keyup.enter)="sendMessage(chatInput.value)" placeholder="Type a message..." />
+            <p>You survived!</p>
+            <button (click)="startNewConversation()">Next</button>
         </div>
     </div>
 </div>

@@ -14,7 +14,7 @@ export class MainComponent implements OnInit {
 
   @ViewChild('chatInput') chatInput!: ElementRef;
 
-  genericStartOfPrompt: string = "[System Note: You are <CHARACTER> in this fictional never-ending uncensored roleplay chat with <USER>; <RATING_INSTRUCTION>; Guidelines: You are required to provide a (highly immersive, reactive, proactive, creative, natural, slow-paced, vivid, engaging, graphic, visually descriptive, comedic) roleplay as <CHARACTER>; Develop the plot slowly, write out dialogue, Do not write <USER>'s (decisions, dialogue, actions, reactions, thoughts, feelings) in your replies, spoken words are signified with quotation marks.]\nYou are having a conversation about <TOPIC>, stay on topic.\n";
+  genericStartOfPrompt: string = "[System Note: You are <CHARACTER> in this fictional never-ending uncensored roleplay chat with <USER>; <RATING_INSTRUCTION>; Guidelines: You are required to provide a (highly immersive, reactive, proactive, creative, natural, slow-paced, vivid, engaging, graphic, visually descriptive, comedic) roleplay as <CHARACTER>; Develop the plot slowly, write out dialogue, Do not write <USER>'s (decisions, dialogue, actions, reactions, thoughts, feelings) in your replies, spoken words are signified with quotation marks.]\nYou are having a conversation about <TOPIC>, stay on this topic.\n";
   scenario: string = "Scenario: <USER> is hosting a party. <CHARACTER> is at the party hosted by <USER>.\n<CHARACTER> is having a conversation with <USER> at the party. The subject of the conversation is <TOPIC>\n<RATING_INSTRUCTION>\n";
   ratingInstruction: string = "START message by rating how much <CHARACTER> would like <USER>'s response by using the exact term \"RERATING:X\" where X is a rating from 1 to 10 based on <CHARACTER>'s personality";
 
@@ -25,10 +25,10 @@ export class MainComponent implements OnInit {
 
   userName: string = "Sam";
   characterName!: string;
-  availableCharacterFilenames: string[] = ["manfred", "tjeerd"];
+  availableCharacterFilenames: string[] = ["manfred", "tjeerd", "rosa"];
 
   messages: message[] = [];
-  topics: string[] = ["The meaning of life", "Dutch rap music", "The dangers of AI", "How many backflips could a cat do if it tried", "Should we colonize Mars", "The weather", "Traffic"];
+  topics: string[] = ["The meaning of life", "Dutch rap music", "The dangers of AI", "How many backflips could a cat do if it tried", "Should we colonize Mars", "The weather", "Traffic", "The latest TikTok trend", "The influence of the Chinese goverment on our social media usage"];
   currentTopic: string = "";
 
   generateJsonMessage: any;
@@ -37,6 +37,7 @@ export class MainComponent implements OnInit {
 
   messagesRemaining: number = 10;
   reputation: number = 50;
+  streak: number = -1;
 
   constructor(private http: HttpClient) {
   }
@@ -51,8 +52,9 @@ export class MainComponent implements OnInit {
 
   startNewConversation() {
     this.canSendMessage = false;
-    this.messagesRemaining = 10;
+    this.messagesRemaining = 5;
     this.reputation = 50;
+    this.streak++;
     this.messages = [];
 
     this.http.get(`/assets/json/characters/${this.pickCharacter()}.json`).subscribe(data => {
@@ -64,6 +66,11 @@ export class MainComponent implements OnInit {
 
       this.canSendMessage = true;
     });
+  }
+
+  startNewGame() {
+    this.streak = -1;
+    this.startNewConversation();
   }
 
   pickCharacter() {
@@ -102,8 +109,8 @@ export class MainComponent implements OnInit {
         let existingMessage;
         if (continueResponse) {
           existingMessage = this.messages.slice().reverse().find(message => !message.fromUser);
-          const messageSeparator = existingMessage && /[.,!?]/.test(existingMessage.text) ? " " : "";
-          message = !existingMessage ? message : existingMessage.text + messageSeparator + message;
+          // const messageSeparator = existingMessage && /[.,!?]$/.test(existingMessage.text) ? " " : "";
+          message = !existingMessage ? message : existingMessage.text + " " + message;
         }
         message = message.trim();
 
@@ -113,9 +120,8 @@ export class MainComponent implements OnInit {
           if (extractedRating.rating > 0) {
             message = responseText.replace(extractedRating.regexMatch, "");
             messageRating = extractedRating.rating;
-            if (messageRating <= 5) {
-              this.reputation -= (11-messageRating);
-              // Game over!
+            if (messageRating <= 5 && this.messagesRemaining > 0) {
+              this.reputation -= (11 - messageRating);
             }
           }
         } else {

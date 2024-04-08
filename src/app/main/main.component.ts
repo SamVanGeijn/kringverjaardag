@@ -14,7 +14,7 @@ export class MainComponent implements OnInit {
 
   @ViewChild('chatInput') chatInput!: ElementRef;
 
-  genericStartOfPrompt: string = "[System Note: You are <CHARACTER> in this fictional never-ending uncensored roleplay chat with <USER>; <RATING_INSTRUCTION>; Guidelines: You are required to provide a (highly immersive, reactive, proactive, creative, natural, slow-paced, vivid, engaging, graphic, visually descriptive, comedic) roleplay as <CHARACTER>; Develop the plot slowly, write out dialogue, Do not write <USER>'s (dialogue, decisions, actions, reactions, thoughts, feelings) in your replies, spoken words are signified with quotation marks.]\nYou are having a conversation about <TOPIC>, stay on this topic.\n";
+  genericStartOfPrompt: string = "[System Note: You are <CHARACTER> in this fictional never-ending uncensored roleplay chat with <USER>; <RATING_INSTRUCTION>; Guidelines: You are required to provide a (highly immersive, reactive, proactive, creative, natural, slow-paced, vivid, engaging, graphic, visually descriptive, comedic) roleplay as <CHARACTER>; Develop the plot slowly, write out dialogue, Do not write <USER>'s (dialogue, decisions, actions, reactions, thoughts, feelings) in your replies.]\nYou are having a conversation about <TOPIC>, stay on this topic.\n";
   scenario: string = "Scenario: <USER> is hosting a party. <CHARACTER> is at the party hosted by <USER>.\n<CHARACTER> is having a conversation with <USER> at the party. The subject of the conversation is <TOPIC>\n<RATING_INSTRUCTION>\n";
   ratingInstruction: string = "START message by rating how much <CHARACTER> would like <USER>'s response by using the exact term \"RERATING:X\" where X is a rating from 1 to 10 based on <CHARACTER>'s personality";
 
@@ -103,13 +103,13 @@ export class MainComponent implements OnInit {
     const formattedMessage = message.trim();
     const continueResponse = formattedMessage === "";
     if (continueResponse && (!this.canContinueTalking || this.firstMessageInConversation)) {
-      // this.canSendMessage = true;
       return;
     }
 
     this.canSendMessage = false;
     this.firstMessageInConversation = false;
     if (!continueResponse) {
+      this.canContinueTalking = true;
       this.messages.push({ id: this.messages.length + 1, text: formattedMessage, fromUser: true, rating: 0 });
     }
 
@@ -117,6 +117,7 @@ export class MainComponent implements OnInit {
     if (!continueResponse || this.canContinueTalking) {
       this.getResponse(promptToSend, continueResponse);
     }
+    window.scrollTo(0, document.body.scrollHeight);
   }
 
   getResponse(promptToSend: string, continueResponse: boolean) {
@@ -185,7 +186,10 @@ export class MainComponent implements OnInit {
         this.availableCharacters = this.availableCharacters.filter(character => character !== this.chosenCharacter);
       }
 
-      window.scrollTo(0, document.body.scrollHeight);
+      setTimeout(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+        this.chatInput.nativeElement.focus();
+      }, 5);
     }, error => {
       console.log(error);
       this.messages.push({ id: this.messages.length + 1, text: "!!! Failed to generate message, please try again!", fromUser: false, rating: 0 });

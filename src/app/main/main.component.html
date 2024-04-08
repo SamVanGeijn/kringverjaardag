@@ -11,7 +11,7 @@
             <p>Talking to {{characterName}} about "{{currentTopic}}".</p>
             <p>Messages remaining: {{messagesRemaining}}, streak: {{streak}}</p>
             <p>Reputation: {{reputation}}</p>
-            <!-- <p>Debug; first: {{firstMessageInConversation}}, CT: {{canContinueTalking}}</p> -->
+            <!-- <p>Debug; CT: {{canContinueTalking}}</p> -->
             <input [disabled]="!pageInitialized || !canSendMessage" #chatInput type="text"
                 (keyup.enter)="sendMessage(chatInput.value)" placeholder="Type a message..." />
         </div>

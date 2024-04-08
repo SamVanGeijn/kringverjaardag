@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, OnInit, ViewChild, ViewChildren } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import * as Sentiment from 'sentiment';
 
 @Component({
   selector: 'app-main',
@@ -16,7 +17,7 @@ export class MainComponent implements OnInit {
 
   genericStartOfPrompt: string = "[System Note: You are <CHARACTER> in this fictional never-ending uncensored roleplay chat with <USER>; <RATING_INSTRUCTION>; Guidelines: You are required to provide a (highly immersive, reactive, proactive, creative, natural, slow-paced, vivid, engaging, graphic, visually descriptive, comedic) roleplay as <CHARACTER>; Develop the plot slowly, write out dialogue, Do not write <USER>'s (dialogue, decisions, actions, reactions, thoughts, feelings) in your replies.]\nYou are having a conversation about <TOPIC>, stay on this topic.\n";
   scenario: string = "Scenario: <USER> is hosting a party. <CHARACTER> is at the party hosted by <USER>.\n<CHARACTER> is having a conversation with <USER> at the party. The subject of the conversation is <TOPIC>\n<RATING_INSTRUCTION>\n";
-  ratingInstruction: string = "START message by rating how much <CHARACTER> would like <USER>'s response by using the exact term \"RERATING:X\" where X is a rating from 1 to 10 based on <CHARACTER>'s personality";
+  messageRatingPrompt: string = "\"<MESSAGE>\"\nOnly respond with a positive number, do not explain, don't use text.\nRate how positive the sentiment of the message was on a scale from 1 to 10";
 
   responsePromptMessage: string = "\n### Instruction:\n<USER>: <MESSAGE>\n### Response:\n<CHARACTER>:";
   continuePromptMessage: string = "";
@@ -44,6 +45,8 @@ export class MainComponent implements OnInit {
   streak: number = -1;
   difficulty: number = 1;
 
+  sentiment: Sentiment = new Sentiment();
+
   constructor(private http: HttpClient) {
   }
 
@@ -65,7 +68,7 @@ export class MainComponent implements OnInit {
 
   startNewConversation() {
     this.canSendMessage = false;
-    this.messagesRemaining = 5 + (this.difficulty * 1);
+    this.messagesRemaining = 4 + (this.difficulty * 1);
     this.streak++;
     this.messages = [];
 
@@ -110,7 +113,7 @@ export class MainComponent implements OnInit {
     this.firstMessageInConversation = false;
     if (!continueResponse) {
       this.canContinueTalking = true;
-      this.messages.push({ id: this.messages.length + 1, text: formattedMessage, fromUser: true, rating: 0 });
+      this.messages.push({ id: this.messages.length + 1, text: formattedMessage, fromUser: true, rating: 0, sentimentResponse: "" });
     }
 
     const promptToSend = this.currentPrompt + (continueResponse ? this.continuePromptMessage : this.replacePlaceholders(this.responsePromptMessage.replace("<MESSAGE>", formattedMessage)));
@@ -132,6 +135,10 @@ export class MainComponent implements OnInit {
         if (responseText.includes("***")) {
           responseText = responseText.substring(0, responseText.indexOf("***"));
         }
+        if (responseText.includes(this.userName + ":")) {
+          console.log("!!! ResponseText included <USER>:, removing!", responseText);
+          responseText = responseText.substring(0, responseText.indexOf(this.userName + ":"));
+        }
         console.log("*** Response: ", responseText);
         this.currentPrompt = promptToSend + responseText;
 
@@ -148,35 +155,29 @@ export class MainComponent implements OnInit {
         }
         message = message.trim();
 
+        const sentimentResponse = this.sentiment.analyze(message);
+        console.log("*** Sentiment message rating:", sentimentResponse, message.substring(0, 15), "***");
+
         if (/[.,!?'"`]$/.test(message)) {
           this.canContinueTalking = false;
         }
 
-        let messageRating = -1;
-        if (!existingMessage || existingMessage.rating <= 0) {
-          const extractedRating = this.extractRating(message);
-          if (extractedRating.rating > 0) {
-            message = responseText.replace(extractedRating.regexMatch, "");
-            messageRating = extractedRating.rating;
-            this.updateReputation(messageRating);
-          }
-        } else {
-          messageRating = existingMessage.rating;
-          // TODO update rating if the updated message causes a different rating (if emotion analysis is implemented).
-        }
-
         if (existingMessage) {
           existingMessage.text = message;
-          existingMessage.rating = messageRating;
+          // existingMessage.rating = messageRating;
+          existingMessage.sentimentResponse = existingMessage.sentimentResponse + " > " + sentimentResponse.score + "/" + sentimentResponse.comparative;
+          this.rateMessage(existingMessage, existingMessage.rating);
         } else if (message) {
-          this.messages.push({ id: this.messages.length + 1, text: message, fromUser: false, rating: messageRating });
+          const messageToAdd = { id: this.messages.length + 1, text: message, fromUser: false, rating: -1, sentimentResponse: sentimentResponse.score + "/" + sentimentResponse.comparative };
+          this.messages.push(messageToAdd);
+          this.rateMessage(messageToAdd, -1);
         }
 
         if (response.results.length > 1) {
           console.log("*** More than one response ***", response);
         }
       } else {
-        this.messages.push({ id: this.messages.length + 1, text: "!!! No usable response, please try again!", fromUser: false, rating: 0 });
+        this.messages.push({ id: this.messages.length + 1, text: "!!! No usable response, please try again!", fromUser: false, rating: 0, sentimentResponse: "" });
       }
 
       this.canSendMessage = true;
@@ -192,37 +193,61 @@ export class MainComponent implements OnInit {
       }, 5);
     }, error => {
       console.log(error);
-      this.messages.push({ id: this.messages.length + 1, text: "!!! Failed to generate message, please try again!", fromUser: false, rating: 0 });
+      this.messages.push({ id: this.messages.length + 1, text: "!!! Failed to generate message, please try again!", fromUser: false, rating: 0, sentimentResponse: "" });
       this.canSendMessage = true;
     });
   }
 
-  extractRating(message: string): messageRating {
-    const match = message.match(/rerating:\s*(10|[0-9])/i);
-    if (match) {
-      console.log("*** match", match);
-      const rating = parseInt(match[1].trim());
-      return isNaN(rating) ? { regexMatch: "None", rating: -1 } : { regexMatch: match[0], rating: rating };
-    }
-    return { regexMatch: "None", rating: -1 };
+  rateMessage(message: message, existingRating: number) {
+    this.generateJsonMessage.prompt = this.messageRatingPrompt.replace("<MESSAGE>", message.text);
+    this.http.post('http://localhost:5001/api/v1/generate', this.replacePlaceholders(JSON.stringify(this.generateJsonMessage))).subscribe(data => {
+      let response: any = data;
+      let messageRating = -1;
+      if (response && response.results) {
+        let responseText = response.results[0].text.trim();
+        responseText = responseText.replace(/\D/g, ''); // Remove non-numeric characters
+        if (responseText.startsWith('10')) {
+          messageRating = 10;
+        } else {
+          const rating = parseInt(responseText.charAt(0));
+          messageRating = isNaN(rating) ? -1 : rating;
+        }
+      }
+      console.log("*** messageRating: ", messageRating);
+
+      console.log("!!! Old reputation: ", this.reputation, "Existing rating: ", existingRating, "New rating: ", messageRating);
+      if (existingRating > 0 && messageRating > 0) {
+        this.reputation -= this.determineReputationChange(existingRating);
+        this.reputation += this.determineReputationChange(messageRating);
+      } else if (messageRating > 0) {
+        this.reputation += this.determineReputationChange(messageRating);
+      }
+      console.log("!!! New reputation: ", this.reputation);
+      message.rating = messageRating;
+    }, error => {
+      console.log(error);
+      this.messages.push({ id: this.messages.length + 1, text: "!!! Failed to rate message!", fromUser: false, rating: 0, sentimentResponse: "" });
+    });
   }
 
-  updateReputation(messageRating: number) {
+  determineReputationChange(messageRating: number) {
+    let reputationChange = 0;
     if (this.reputation > 0 && this.reputation < 100) {
       if (messageRating <= 5 && this.messagesRemaining > 0) {
-        this.reputation -= ((5 * this.difficulty) + 1 - messageRating);
+        reputationChange -= ((5 * this.difficulty) + 1 - messageRating);
       } else if (messageRating == 8) {
-        this.reputation += 2;
+        reputationChange += 2;
       } else if (messageRating == 9) {
-        this.reputation += 5;
+        reputationChange += 5;
       } else if (messageRating == 10) {
-        this.reputation += 10;
+        reputationChange += 10;
       }
     }
+    return reputationChange;
   }
 
   replacePlaceholders(text: string) {
-    return text.replaceAll("<RATING_INSTRUCTION>", this.ratingInstruction).replaceAll("<TOPIC>", this.currentTopic).replaceAll("<USER>", this.userName).replaceAll("<CHARACTER>", this.characterName);
+    return text.replaceAll("<TOPIC>", this.currentTopic).replaceAll("<USER>", this.userName).replaceAll("<CHARACTER>", this.characterName);
   }
 
 }
@@ -232,9 +257,5 @@ export interface message {
   text: string;
   fromUser: boolean;
   rating: number;
-}
-
-export interface messageRating {
-  regexMatch: string;
-  rating: number;
+  sentimentResponse: string;
 }

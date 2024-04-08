@@ -1,8 +1,8 @@
 <div id="chat-container">
     <div id="messages">
-        <p *ngFor="let message of messages" class="message"
-            [ngStyle]="{'text-align': message.fromUser ? 'right' : 'left'}">{{message.text}}<span
-                *ngIf="message.rating > 0" style="color: purple;"> {{message.rating}}</span></p>
+        <div class="message" *ngFor="let message of messages" [ngStyle]="{'text-align': message.fromUser ? 'right' : 'left'}" [ngClass]="{'user-message': message.fromUser, 'character-message': !message.fromUser}">
+                {{message.text}} <span *ngIf="message.rating > 0" style="color: purple;"> {{message.rating}}</span>
+        </div>
         <p style="text-align: left;" *ngIf="pageInitialized && !canSendMessage">{{characterName}} is thinking...</p>
     </div>
 
@@ -11,6 +11,7 @@
             <p>Talking to {{characterName}} about "{{currentTopic}}".</p>
             <p>Messages remaining: {{messagesRemaining}}, streak: {{streak}}</p>
             <p>Reputation: {{reputation}}</p>
+            <!-- <p>Debug; first: {{firstMessageInConversation}}, CT: {{canContinueTalking}}</p> -->
             <input [disabled]="!pageInitialized || !canSendMessage" #chatInput type="text"
                 (keyup.enter)="sendMessage(chatInput.value)" placeholder="Type a message..." />
         </div>

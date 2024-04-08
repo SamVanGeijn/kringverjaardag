@@ -9,16 +9,33 @@
     padding: 20px;
 }
 
+#messages .message {
+    padding: 10px;
+    margin: 5px;
+    display: block;
+    width: fit-content;
+    border-radius: 5px;
+    max-width: 95%;
+}
+
+#messages .user-message {
+    background-color: lightgreen;
+    margin-left: auto;
+}
+
+#messages .character-message {
+    background-color: lightblue;
+    margin-right: auto;
+}
+
 #chat-input {
     background-color: white;
     padding: 20px;
     display: flex;
     justify-content: center;
     align-items: center;
-    position: fixed;
+    position: sticky;
     bottom: 0;
-    width: 100%;
-    overflow: auto;
 }
 
 #chat-input input {
@@ -26,7 +43,6 @@
     display: block;
     margin: 0 auto;
 }
-
 
 #chat-input p {
     text-align: center;

@@ -56,7 +56,27 @@
               "vendorChunk": true,
               "extractLicenses": false,
               "sourceMap": true,
-              "namedChunks": true
+              "namedChunks": true,
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.development.ts"
+                }
+              ]
+            },
+            "openrouter": {
+              "buildOptimizer": false,
+              "optimization": false,
+              "vendorChunk": true,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true,
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.openrouter.ts"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -69,6 +89,9 @@
             },
             "development": {
               "buildTarget": "horror:build:development"
+            },
+            "openrouter": {
+              "buildTarget": "horror:build:openrouter"
             }
           },
           "defaultConfiguration": "development"

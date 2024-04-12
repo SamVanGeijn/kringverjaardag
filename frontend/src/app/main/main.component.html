@@ -1,7 +1,7 @@
 <div id="chat-container">
     <div id="messages">
         <div class="message" *ngFor="let message of messages" [ngStyle]="{'text-align': message.fromUser ? 'right' : 'left'}" [ngClass]="{'user-message': message.fromUser, 'character-message': !message.fromUser}">
-                {{message.text}} <span *ngIf="message.rating > 0" style="color: purple;"> {{message.rating}} - {{message.sentimentResponse}}</span>
+                {{message.text}} <span *ngIf="message.rating > 0 || message.sentimentResponse" style="color: purple;"> {{message.rating}} - {{message.sentimentResponse}}</span>
         </div>
         <p style="text-align: left;" *ngIf="pageInitialized && !canSendMessage">{{characterName}} is thinking...</p>
     </div>

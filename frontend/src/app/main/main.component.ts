@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import * as Sentiment from 'sentiment';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-main',
@@ -51,7 +52,11 @@ export class MainComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.http.get('/assets/json/messages/koboldcpp-test-message.json').subscribe(res => {
+    let messageJsonFilename = "koboldcpp-request"; // By default, use KoboldCPP's message.
+    if (environment.responseType === "choices") {
+      messageJsonFilename = "openrouter-request";
+    }
+    this.http.get(`/assets/json/messages/${messageJsonFilename}.json`).subscribe(res => {
       this.generateJsonMessage = res;
       this.pageInitialized = true;
       this.startNewGame();
@@ -118,80 +123,31 @@ export class MainComponent implements OnInit {
 
     const promptToSend = this.currentPrompt + (continueResponse ? this.continuePromptMessage : this.replacePlaceholders(this.responsePromptMessage.replace("<MESSAGE>", formattedMessage)));
     if (!continueResponse || this.canContinueTalking) {
-      this.getResponse(promptToSend, continueResponse);
+      this.generateJsonMessage.prompt = promptToSend;
+      if (environment.responseType === "results") {
+        this.getResponseWithResults(promptToSend, continueResponse);
+      } else if (environment.responseType === "choices") {
+        this.getResponseWithChoices(promptToSend, continueResponse);
+      } else {
+        this.messages.push({ id: this.messages.length + 1, text: "!!! No valid 'responseType' configured!", fromUser: false, rating: 0, sentimentResponse: "" });
+      }
     }
     window.scrollTo(0, document.body.scrollHeight);
   }
 
-  getResponse(promptToSend: string, continueResponse: boolean) {
-    this.generateJsonMessage.prompt = promptToSend;
-    console.log("*** this.generateJsonMessage.prompt", this.replacePlaceholders(JSON.stringify(this.generateJsonMessage)));
+  getResponseWithResults(promptToSend: string, continueResponse: boolean) {
     this.http.post('http://localhost:5001/api/v1/generate', this.replacePlaceholders(JSON.stringify(this.generateJsonMessage))).subscribe(data => {
       let response: any = data;
       if (response && response.results) {
         let responseText = response.results[0].text.trim();
-        if (responseText.includes("###")) {
-          responseText = responseText.substring(0, responseText.indexOf("###"));
-        }
-        if (responseText.includes("***")) {
-          responseText = responseText.substring(0, responseText.indexOf("***"));
-        }
-        if (responseText.includes(this.userName + ":")) {
-          console.log("!!! ResponseText included <USER>:, removing!", responseText);
-          responseText = responseText.substring(0, responseText.indexOf(this.userName + ":"));
-        }
-        console.log("*** Response: ", responseText);
-        this.currentPrompt = promptToSend + responseText;
-
-        let message = responseText;
-        let existingMessage;
-        if (continueResponse) {
-          if (!message) {
-            this.canContinueTalking = false;
-          } else {
-            existingMessage = this.messages.slice().reverse().find(message => !message.fromUser);
-            // const messageSeparator = existingMessage && /[.,!?]$/.test(existingMessage.text) ? " " : "";
-            message = !existingMessage ? message : existingMessage.text + " " + message;
-          }
-        }
-        message = message.trim();
-
-        const sentimentResponse = this.sentiment.analyze(message);
-        console.log("*** Sentiment message rating:", sentimentResponse, message.substring(0, 15), "***");
-
-        if (/[.,!?'"`]$/.test(message)) {
-          this.canContinueTalking = false;
-        }
-
-        if (existingMessage) {
-          existingMessage.text = message;
-          // existingMessage.rating = messageRating;
-          existingMessage.sentimentResponse = existingMessage.sentimentResponse + " > " + sentimentResponse.score + "/" + sentimentResponse.comparative;
-          this.rateMessage(existingMessage, existingMessage.rating);
-        } else if (message) {
-          const messageToAdd = { id: this.messages.length + 1, text: message, fromUser: false, rating: -1, sentimentResponse: sentimentResponse.score + "/" + sentimentResponse.comparative };
-          this.messages.push(messageToAdd);
-          this.rateMessage(messageToAdd, -1);
-        }
+        this.processResponse(responseText, promptToSend, continueResponse);
 
         if (response.results.length > 1) {
-          console.log("*** More than one response ***", response);
+          alert("*** More than one response *** " + response);
         }
       } else {
         this.messages.push({ id: this.messages.length + 1, text: "!!! No usable response, please try again!", fromUser: false, rating: 0, sentimentResponse: "" });
       }
-
-      this.canSendMessage = true;
-      this.messagesRemaining--;
-
-      if (this.messagesRemaining == 0) {
-        this.availableCharacters = this.availableCharacters.filter(character => character !== this.chosenCharacter);
-      }
-
-      setTimeout(() => {
-        window.scrollTo(0, document.body.scrollHeight);
-        this.chatInput.nativeElement.focus();
-      }, 5);
     }, error => {
       console.log(error);
       this.messages.push({ id: this.messages.length + 1, text: "!!! Failed to generate message, please try again!", fromUser: false, rating: 0, sentimentResponse: "" });
@@ -199,7 +155,95 @@ export class MainComponent implements OnInit {
     });
   }
 
+  getResponseWithChoices(promptToSend: string, continueResponse: boolean) {
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${environment.apiBearerToken}`
+    });
+    this.http.post('https://openrouter.ai/api/v1/chat/completions', this.replacePlaceholders(JSON.stringify(this.generateJsonMessage)), { headers: headers }).subscribe(data => {
+      let response: any = data;
+      console.log("*** response", response);
+      if (response && response.choices) {
+        let responseText = response.choices[0].text.trim();
+        this.processResponse(responseText, promptToSend, continueResponse);
+
+        if (response.choices.length > 1) {
+          alert("*** More than one choice *** " + response);
+        }
+      } else {
+        this.messages.push({ id: this.messages.length + 1, text: "!!! No usable response, please try again!", fromUser: false, rating: 0, sentimentResponse: "" });
+      }
+    });
+  }
+
+  processResponse(responseText: string, promptToSend: string, continueResponse: boolean) {
+    if (responseText.includes("###")) {
+      responseText = responseText.substring(0, responseText.indexOf("###"));
+    }
+    if (responseText.includes("***")) {
+      responseText = responseText.substring(0, responseText.indexOf("***"));
+    }
+    if (responseText.includes(this.userName + ":")) {
+      console.log("!!! ResponseText included <USER>:, removing!", responseText);
+      responseText = responseText.substring(0, responseText.indexOf(this.userName + ":"));
+    }
+    if (responseText.includes("[System Note")) {
+      console.log("!!! ResponseText included [System Note:, removing!", responseText);
+      responseText = responseText.substring(0, responseText.indexOf("[System Note"));
+    }
+    console.log("*** Response: ", responseText);
+    this.currentPrompt = promptToSend + responseText;
+
+    let message = responseText;
+    let existingMessage;
+    if (continueResponse) {
+      if (!message) {
+        this.canContinueTalking = false;
+      } else {
+        existingMessage = this.messages.slice().reverse().find(message => !message.fromUser);
+        // const messageSeparator = existingMessage && /[.,!?]$/.test(existingMessage.text) ? " " : "";
+        message = !existingMessage ? message : existingMessage.text + " " + message;
+      }
+    }
+    message = message.trim();
+
+    const sentimentResponse = this.sentiment.analyze(message);
+    console.log("*** Sentiment message rating:", sentimentResponse, message.substring(0, 15), "***");
+
+    if (/[.,!?'"`]$/.test(message)) {
+      this.canContinueTalking = false;
+    }
+
+    if (existingMessage) {
+      existingMessage.text = message;
+      // existingMessage.rating = messageRating;
+      existingMessage.sentimentResponse = existingMessage.sentimentResponse + " > " + sentimentResponse.score + "/" + sentimentResponse.comparative;
+      this.rateMessage(existingMessage, existingMessage.rating);
+    } else if (message) {
+      const messageToAdd = { id: this.messages.length + 1, text: message, fromUser: false, rating: -1, sentimentResponse: sentimentResponse.score + "/" + sentimentResponse.comparative };
+      this.messages.push(messageToAdd);
+      this.rateMessage(messageToAdd, -1);
+    }
+
+    this.canSendMessage = true;
+    this.messagesRemaining--;
+
+    if (this.messagesRemaining == 0) {
+      this.availableCharacters = this.availableCharacters.filter(character => character !== this.chosenCharacter);
+    }
+
+    setTimeout(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+      this.chatInput.nativeElement.focus();
+    }, 5);
+  }
+
   rateMessage(message: message, existingRating: number) {
+    // For now, don't rate choices, i.e. when we use OpenRouter (which is an external API).
+    if (environment.responseType === "choices") {
+      message.rating = -1;
+      return;
+    }
     this.generateJsonMessage.prompt = this.messageRatingPrompt.replace("<MESSAGE>", message.text);
     this.http.post('http://localhost:5001/api/v1/generate', this.replacePlaceholders(JSON.stringify(this.generateJsonMessage))).subscribe(data => {
       let response: any = data;

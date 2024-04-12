@@ -1,0 +1,19 @@
+{
+    "prompt": "<PROMPT>",
+    "model": "gryphe/mythomist-7b:free",
+    "max_tokens": 300,
+    "temperature": 0.9,
+    "top_p": 1,
+    "min_p": 0.1,
+    "repetition_penalty": 1.2,
+    "frequency_penalty": 0,
+    "presence_penalty": 0.1,
+    "top_k": 0,
+    "stop": [
+        "\\n<USER>:",
+        "\\n### Instruction:",
+        "\\n### Response:"
+    ],
+    "top_a": 0,
+    "seed": -1
+}

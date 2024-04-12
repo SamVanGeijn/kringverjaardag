@@ -125,6 +125,7 @@ export class MainComponent implements OnInit {
 
   getResponse(promptToSend: string, continueResponse: boolean) {
     this.generateJsonMessage.prompt = promptToSend;
+    console.log("*** this.generateJsonMessage.prompt", this.replacePlaceholders(JSON.stringify(this.generateJsonMessage)));
     this.http.post('http://localhost:5001/api/v1/generate', this.replacePlaceholders(JSON.stringify(this.generateJsonMessage))).subscribe(data => {
       let response: any = data;
       if (response && response.results) {

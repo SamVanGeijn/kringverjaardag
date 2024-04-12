@@ -24,14 +24,14 @@
     "smoothing_factor": 0,
     "max_tokens_second": 0,
     "stopping_strings": [
-        "\n<USER>:",
-        "\n### Instruction:",
-        "\n### Response:"
+        "\\n<USER>:",
+        "\\n### Instruction:",
+        "\\n### Response:"
     ],
     "stop": [
-        "\n<USER>:",
-        "\n### Instruction:",
-        "\n### Response:"
+        "\\n<USER>:",
+        "\\n### Instruction:",
+        "\\n### Response:"
     ],
     "truncation_length": 8192,
     "ban_eos_token": false,
@@ -43,7 +43,7 @@
     "mirostat_eta": 0.1,
     "custom_token_bans": "",
     "api_type": "koboldcpp",
-    "api_server": "http://localhost:5001",
+    "api_server": "http://127.0.0.1:5001",
     "legacy_api": false,
     "sampler_order": [
         6,
@@ -66,6 +66,5 @@
     "repeat_last_n": 400,
     "n_predict": 300,
     "mirostat": 0,
-    "ignore_eos": false,
-    "stream": true
+    "ignore_eos": false
 }

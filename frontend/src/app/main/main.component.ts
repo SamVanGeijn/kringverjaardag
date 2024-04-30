@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import * as Sentiment from 'sentiment';
 import { environment } from '../../environments/environment';
-import { ComprehendClient, DetectSentimentCommand, DetectSentimentRequest } from "@aws-sdk/client-comprehend";
+import { ComprehendClient, DetectSentimentCommand, DetectSentimentRequest, DetectSentimentResponse } from "@aws-sdk/client-comprehend";
 
 @Component({
   selector: 'app-main',
@@ -43,6 +43,7 @@ export class MainComponent implements OnInit {
   firstMessageInConversation: boolean = true;
 
   messagesRemaining: number = 10;
+  survived?: boolean = undefined;
   reputation: number = 50;
   streak: number = -1;
   difficulty: number = 1;
@@ -77,6 +78,7 @@ export class MainComponent implements OnInit {
   startNewConversation() {
     this.canSendMessage = false;
     this.messagesRemaining = 4 + (this.difficulty * 1);
+    this.survived = undefined;
     this.streak++;
     this.messages = [];
 
@@ -109,19 +111,22 @@ export class MainComponent implements OnInit {
         break;
       }
       messageForRequest = updatedMessage;
-    }      
+    }
     console.log("Message for request:", messageForRequest);
     return messageForRequest;
   }
 
-  async testSentiment() {
-    const input: DetectSentimentRequest = { // DetectSentimentRequest
+  async determineSentiment(): Promise<sentimentResult> {
+    const input: DetectSentimentRequest = {
       Text: this.createSentimentRequestMessage(),
       LanguageCode: "en"
     };
     const command = new DetectSentimentCommand(input);
-    const response = await this.comprehendClient.send(command);
-    console.log("!!! Comprehend response: ", response);
+    const response: DetectSentimentResponse = await this.comprehendClient.send(command);
+    console.log("DetectSentimentResponse", response);
+    return { sentiment: response.Sentiment, positivityPercentage: response?.SentimentScore?.Positive };
+    // await new Promise(f => setTimeout(f, 1500));
+    // return { sentiment: "POSITIVE", positivityPercentage: 31 };
   }
 
   pickCharacter() {
@@ -202,7 +207,7 @@ export class MainComponent implements OnInit {
     });
   }
 
-  processResponse(responseText: string, promptToSend: string, continueResponse: boolean) {
+  async processResponse(responseText: string, promptToSend: string, continueResponse: boolean) {
     if (responseText.includes("###")) {
       responseText = responseText.substring(0, responseText.indexOf("###"));
     }
@@ -256,6 +261,12 @@ export class MainComponent implements OnInit {
 
     if (this.messagesRemaining == 0) {
       this.availableCharacters = this.availableCharacters.filter(character => character !== this.chosenCharacter);
+      const sentimentResult = await this.determineSentiment();
+      if (sentimentResult.sentiment === 'POSITIVE' || (sentimentResult.positivityPercentage && sentimentResult.positivityPercentage >= 0.3)) {
+        this.survived = true;
+      } else {
+        this.survived = false;
+      }
     }
 
     setTimeout(() => {
@@ -329,4 +340,9 @@ export interface message {
   fromUser: boolean;
   rating: number;
   sentimentResponse: string;
+}
+
+export interface sentimentResult {
+  sentiment?: string;
+  positivityPercentage?: number;
 }

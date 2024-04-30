@@ -17,8 +17,8 @@
             <!-- <p>Debug; CT: {{canContinueTalking}}</p> -->
             <input [disabled]="!pageInitialized || !canSendMessage" #chatInput type="text"
                 (keyup.enter)="sendMessage(chatInput.value)" placeholder="Type a message..." />
-            <button (click)="createSentimentRequestMessage()">Test sentiment message</button>
-            <button (click)="testSentiment()">Test sentiment request</button>
+            <!-- <button (click)="createSentimentRequestMessage()">Test sentiment message</button> -->
+            <!-- <button (click)="testSentiment()">Test sentiment request</button> -->
         </div>
         <div *ngIf="reputation <= 0">
             <p>Game over!</p>
@@ -27,8 +27,13 @@
         <div *ngIf="reputation > 0 && messagesRemaining <= 0">
             <input [disabled]="!pageInitialized || !canSendMessage" #chatInput type="text"
                 (keyup.enter)="sendMessage(chatInput.value)" placeholder="Type a message..." />
-            <p>You survived!</p>
-            <button (click)="startNewConversation()">Next</button>
+            <p *ngIf="survived == undefined">Calculating result...</p>
+            <!--  -->
+            <p *ngIf="survived">You survived (for now)!</p>
+            <button *ngIf="survived" (click)="startNewConversation()">Next</button>
+            <!--  -->
+            <p *ngIf="survived == false">You lost!</p>
+            <button *ngIf="survived == false" (click)="startNewGame()">Restart</button>
         </div>
     </div>
 </div>

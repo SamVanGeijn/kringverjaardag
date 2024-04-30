@@ -1,7 +1,10 @@
 <div id="chat-container">
     <div id="messages">
-        <div class="message" *ngFor="let message of messages" [ngStyle]="{'text-align': message.fromUser ? 'right' : 'left'}" [ngClass]="{'user-message': message.fromUser, 'character-message': !message.fromUser}">
-                {{message.text}} <span *ngIf="message.rating > 0 || message.sentimentResponse" style="color: purple;"> {{message.rating}} - {{message.sentimentResponse}}</span>
+        <div class="message" *ngFor="let message of messages"
+            [ngStyle]="{'text-align': message.fromUser ? 'right' : 'left'}"
+            [ngClass]="{'user-message': message.fromUser, 'character-message': !message.fromUser}">
+            {{message.text}} <span *ngIf="message.rating > 0 || message.sentimentResponse" style="color: purple;">
+                {{message.rating}} - {{message.sentimentResponse}}</span>
         </div>
         <p style="text-align: left;" *ngIf="pageInitialized && !canSendMessage">{{characterName}} is thinking...</p>
     </div>
@@ -14,6 +17,8 @@
             <!-- <p>Debug; CT: {{canContinueTalking}}</p> -->
             <input [disabled]="!pageInitialized || !canSendMessage" #chatInput type="text"
                 (keyup.enter)="sendMessage(chatInput.value)" placeholder="Type a message..." />
+            <button (click)="createSentimentRequestMessage()">Test sentiment message</button>
+            <button (click)="testSentiment()">Test sentiment request</button>
         </div>
         <div *ngIf="reputation <= 0">
             <p>Game over!</p>

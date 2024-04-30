@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import * as Sentiment from 'sentiment';
 import { environment } from '../../environments/environment';
+import { ComprehendClient, DetectSentimentCommand, DetectSentimentRequest } from "@aws-sdk/client-comprehend";
 
 @Component({
   selector: 'app-main',
@@ -47,12 +48,14 @@ export class MainComponent implements OnInit {
   difficulty: number = 1;
 
   sentiment: Sentiment = new Sentiment();
+  // https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/comprehend/command/DetectSentimentCommand/
+  comprehendClient: ComprehendClient = new ComprehendClient({ region: "eu-central-1", credentials: { accessKeyId: environment.comprehendAccessKey, secretAccessKey: environment.comprehendSecretKey } });
 
   constructor(private http: HttpClient) {
   }
 
   ngOnInit() {
-    let messageJsonFilename = "koboldcpp-request"; // By default, use KoboldCPP's message.
+    let messageJsonFilename = "koboldcpp-request"; // By default, use KoboldCPP's request.
     if (environment.responseType === "choices") {
       messageJsonFilename = "openrouter-request";
     }
@@ -93,9 +96,32 @@ export class MainComponent implements OnInit {
       this.currentTopic = this.topics[Math.floor(Math.random() * this.topics.length)];
       this.currentPrompt = this.createPrompt(characterData.description, characterData.exampleMessages);
       // console.log(`currentPrompt (~${this.currentPrompt.length / 4} tokens}): ${this.currentPrompt}`);
-
       this.canSendMessage = true;
     });
+  }
+
+  createSentimentRequestMessage() {
+    const lastMessages = this.messages.filter(msg => !msg.fromUser).map(msg => msg.text);
+    let messageForRequest = "";
+    for (const msg of lastMessages) {
+      const updatedMessage = messageForRequest + " " + msg;
+      if (updatedMessage.length >= 2000) { // TODO Maak instelbaar. 5000 in prod (5000 chars = 50 units = 0.005 dollars)?
+        break;
+      }
+      messageForRequest = updatedMessage;
+    }      
+    console.log("Message for request:", messageForRequest);
+    return messageForRequest;
+  }
+
+  async testSentiment() {
+    const input: DetectSentimentRequest = { // DetectSentimentRequest
+      Text: this.createSentimentRequestMessage(),
+      LanguageCode: "en"
+    };
+    const command = new DetectSentimentCommand(input);
+    const response = await this.comprehendClient.send(command);
+    console.log("!!! Comprehend response: ", response);
   }
 
   pickCharacter() {
